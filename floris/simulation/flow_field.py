@@ -337,7 +337,7 @@ class FlowField():
         for turbine in self.turbine_map.turbines:
             turbine.reinitialize_turbine()
 
-    def calculate_wake(self, no_wake=False):
+    def calculate_wake(self, no_wake=False, on_initial_field=True):
         """
         Updates the flow field based on turbine activity.
 
@@ -350,6 +350,11 @@ class FlowField():
             no_wake: A bool that when *True* updates the turbine 
                 quantities without calculating the wake or adding the 
                 wake to the flow field.
+            on_initial_field: A bool that when *True* (default) will
+                superimpose the calculated wakes onto the initial
+                velocity field. If the freestream has been corrected
+                (e.g., to conserve mass), then this should be set to
+                *False*.
 
         Returns:
             *None* -- The flow field and turbine properties are updated 
@@ -434,10 +439,16 @@ class FlowField():
 
         # apply the velocity deficit field to the freestream
         if not no_wake:
-            # TODO: are these signs correct?
-            self.u = self.u_initial - u_wake
-            self.v = self.v_initial + v_wake
-            self.w = self.w_initial + w_wake
+            if on_initial_field:
+                # TODO: are these signs correct?
+                self.u = self.u_initial - u_wake
+                self.v = self.v_initial + v_wake
+                self.w = self.w_initial + w_wake
+            else:
+                # TODO: are these signs correct?
+                self.u = self.u - u_wake
+                self.v = self.v + v_wake
+                self.w = self.w + w_wake
 
         # rotate the grid if it is curl
         if self.wake.velocity_model.model_string == 'curl':
