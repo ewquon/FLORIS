@@ -384,7 +384,8 @@ class FlowField():
 
             # update the turbine based on the velocity at its hub
             turbine.update_velocities(
-                u_wake, coord, self, rotated_x, rotated_y, rotated_z)
+                u_wake, coord, self, rotated_x, rotated_y, rotated_z,
+                on_initial_field)
 
             # get the wake deflecton field
             deflection = self._compute_turbine_wake_deflection(

@@ -245,7 +245,10 @@ class Turbine():
 
         return np.sqrt(ti_calculation**2 + flow_field_ti**2)
 
-    def update_velocities(self, u_wake, coord, flow_field, rotated_x, rotated_y, rotated_z):
+    def update_velocities(self,
+                          u_wake, coord, flow_field,
+                          rotated_x, rotated_y, rotated_z,
+                          on_initial_field=True):
         """
         This method updates the velocities at the rotor swept area grid 
         points based on the flow field freestream velocities and wake 
@@ -267,6 +270,9 @@ class Turbine():
             rotated_z: An array of floats containing the "z" 
                 coordinates of the flow field grid rotated so the new 
                 "x" axis is aligned with the wind direction.
+            on_initial_field: A bool that indicates whether
+                flow_field.u_initial or flow_field.u should be used to
+                determine the local wind speed.
 
         Returns:
             *None* -- The velocities are updated directly in the 
@@ -274,7 +280,10 @@ class Turbine():
         """
 
         # reset the waked velocities
-        local_wind_speed = flow_field.u_initial - u_wake
+        if on_initial_field:
+            local_wind_speed = flow_field.u_initial - u_wake
+        else:
+            local_wind_speed = flow_field.u - u_wake
         self.velocities = self.calculate_swept_area_velocities(
             flow_field.wind_direction,
             local_wind_speed,
