@@ -46,9 +46,42 @@ class PressureField(object):
         self.dy = dy[0]
         self.dz = dz[0]
 
-        # solver matrices
-        self.LHS = None
+        # setup solver matrices
+        self._setup_LHS()
         self.RHS = None
+
+    def _setup_LHS(self):
+        """Compressed sparse row (CSR) format appears to be slightly
+        more efficient than compressed sparse column (CSC).
+        """
+        ones = np.ones((self.N,))
+        diag = -2*ones/self.dx**2 - 2*ones/self.dy**2 - 2*ones/self.dz**2
+        # off diagonal for d/dx operator    
+        offx = self.Ny*self.Nz
+        offdiagx = ones[:-offx]/self.dx**2
+        # off diagonal for d/dy operator    
+        offy = self.Nz
+        offdiagy = ones[:-offy]/self.dy**2
+        for i in range(offx, len(offdiagy), offx):
+            offdiagy[i-offy:i] -= 1./self.dy**2
+        # off diagonal for d/dz operator    
+        offz = 1
+        offdiagz = ones[:-offz]/self.dz**2
+        offdiagz[self.Nz-1::self.Nz] -= 1./self.dz**2
+        # spsolve requires matrix to be in CSC or CSR format
+        self.LHS = diags(
+            [
+                offdiagx,
+                offdiagy,
+                offdiagz,
+                diag,
+                offdiagz,
+                offdiagy,
+                offdiagx,
+            ],
+            [-offx,-offy,-offz,0,offz,offy,offx],
+            format='csr'
+        )
 
     def calc_gradients(self):
         """Calculate RHS of Poisson equation, div(U), from finite
@@ -93,39 +126,6 @@ class PressureField(object):
         if dw_dz is not None:
             div += dw_dz
         self.RHS = div.ravel()
-
-    def _setup_LHS(self):
-        """Compressed sparse row (CSR) format appears to be slightly
-        more efficient than compressed sparse column (CSC).
-        """
-        ones = np.ones((self.N,))
-        diag = -2*ones/self.dx**2 - 2*ones/self.dy**2 - 2*ones/self.dz**2
-        # off diagonal for d/dx operator    
-        offx = self.Ny*self.Nz
-        offdiagx = ones[:-offx]/self.dx**2
-        # off diagonal for d/dy operator    
-        offy = self.Nz
-        offdiagy = ones[:-offy]/self.dy**2
-        for i in range(offx, len(offdiagy), offx):
-            offdiagy[i-offy:i] -= 1./self.dy**2
-        # off diagonal for d/dz operator    
-        offz = 1
-        offdiagz = ones[:-offz]/self.dz**2
-        offdiagz[self.Nz-1::self.Nz] -= 1./self.dz**2
-        # spsolve requires matrix to be in CSC or CSR format
-        self.LHS = diags(
-            [
-                offdiagx,
-                offdiagy,
-                offdiagz,
-                diag,
-                offdiagz,
-                offdiagy,
-                offdiagx,
-            ],
-            [-offx,-offy,-offz,0,offz,offy,offx],
-            format='csr'
-        )
 
     def _correct_field(self,A=1.0):
         dp_dx = (self.p[2:,:,:] - self.p[:-2,:,:]) / (2*self.dx)
