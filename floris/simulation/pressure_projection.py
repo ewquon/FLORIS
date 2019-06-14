@@ -10,10 +10,13 @@
 # specific language governing permissions and limitations under the License.
 
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.sparse import diags
 from scipy.sparse.linalg import cg
 #from pyamg import smoothed_aggregation_solver
 #from pyamg.gallery import poisson
+
+DEBUG = True
 
 class PressureField(object):
     """
@@ -44,6 +47,12 @@ class PressureField(object):
         # setup solver matrices
         self._setup_LHS()
         self.RHS = None
+
+        #--------------------------------------------------------------
+        if DEBUG:
+            self.Nsolves = 0
+            self.khub = np.argmin(np.abs(self.z[0,0,:] - 90.))
+            print('Initialized PressureField')
 
     def _setup_LHS(self):
         """Compressed sparse row (CSR) format appears to be slightly
@@ -165,5 +174,22 @@ class PressureField(object):
         assert(soln[1] == 0) # success
         self.p = soln[0].reshape(self.u0.shape)
         self._correct_fields(A)
+
+        #--------------------------------------------------------------
+        if DEBUG:
+            fig,ax = plt.subplots(nrows=2,figsize=(11,8))
+            cmsh = ax[0].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    self.u0[:,:,self.khub], 
+                                    cmap='coolwarm')
+            fig.colorbar(cmsh,ax=ax[0])
+            cmsh = ax[1].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    self.u[:,:,self.khub], 
+                                    cmap='coolwarm')
+            fig.colorbar(cmsh,ax=ax[1])
+            fig.savefig('/var/tmp/pressure_solve_{:04d}.png'.format(self.Nsolves))
+            plt.close(fig)
+            self.Nsolves += 1
 
         return self.u, self.v, self.w
