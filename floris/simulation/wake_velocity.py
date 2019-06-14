@@ -445,7 +445,9 @@ class Gauss(WakeVelocity):
         self.alpha = float(model_dictionary["alpha"])  # near wake parameter
         self.beta = float(model_dictionary["beta"])    # near wake parameter
 
-    def function(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, wake, flow_field):
+    def function(self, x_locations, y_locations, z_locations, turbine,
+                 turbine_coord, deflection_field, wake, flow_field,
+                 local_field=None):
         """
         Using the Gaussian wake model, this method calculates and 
         returns the wake velocity deficits, caused by the specified 
@@ -496,7 +498,10 @@ class Gauss(WakeVelocity):
         HH = turbine.hub_height
         yaw = -1 * turbine.yaw_angle  # opposite sign convention in this model
         Ct = turbine.Ct
+
         U_local = flow_field.u_initial
+        if local_field is not None:
+            U_local -= local_field
 
         # wake deflection
         delta = deflection_field

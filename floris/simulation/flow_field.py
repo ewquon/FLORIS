@@ -133,8 +133,15 @@ class FlowField():
         self.v = self.v_initial.copy()
         self.w = self.w_initial.copy()
 
-    def _compute_turbine_velocity_deficit(self, x, y, z, turbine, coord, deflection, wake, flow_field):
-        return self.wake.velocity_function(x, y, z, turbine, coord, deflection, wake, flow_field)
+    def _compute_turbine_velocity_deficit(self, x, y, z, turbine, coord,
+                                          deflection, wake, flow_field,
+                                          **kwargs):
+        try:
+            return self.wake.velocity_function(x, y, z, turbine, coord,
+                    deflection, wake, flow_field, **kwargs)
+        except TypeError as e:
+            print(e)
+            print('Ignored extra kwargs for wake.velocity_function:',kwargs)
 
     def _compute_turbine_wake_deflection(self, x, y, turbine, coord, flow_field):
         return self.wake.deflection_function(x, y, turbine, coord, flow_field)
@@ -356,7 +363,7 @@ class FlowField():
             self.pressure_correction = None
 
 
-    def calculate_wake(self, no_wake=False):
+    def calculate_wake(self, no_wake=False, use_local_field=False):
         """
         Updates the flow field based on turbine activity.
 
@@ -405,8 +412,13 @@ class FlowField():
                 rotated_x, rotated_y, turbine, coord, self)
 
             # get the velocity deficit accounting for the deflection
-            turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
-                rotated_x, rotated_y, rotated_z, turbine, coord, deflection, self.wake, self)
+            if use_local_field:
+                turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
+                    rotated_x, rotated_y, rotated_z, turbine, coord, deflection,
+                self.wake, self, local_field=u_wake)
+            else:
+                turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
+                    rotated_x, rotated_y, rotated_z, turbine, coord, deflection, self.wake, self)
             if self.pressure_correction:
                 # correct the individual turbine wake, which affects the area
                 # overlap detection for wake-added TI 
