@@ -14,6 +14,8 @@ from ..utilities import Vec3
 from ..utilities import cosd, sind, tand
 from scipy.interpolate import griddata
 
+from .pressure_projection import PressureField
+
 
 class FlowField():
     """
@@ -259,7 +261,8 @@ class FlowField():
                                 air_density=None,
                                 wake=None,
                                 turbine_map=None,
-                                with_resolution=None):
+                                with_resolution=None,
+                                pressure_correction=False):
         """
         Reiniaitilzies the flow field when a parameter needs to be 
         updated.
@@ -292,6 +295,9 @@ class FlowField():
             with_resolution: A :py:class:`floris.utilities.Vec3` object 
                 that defines the flow field resolution at which to 
                 calculate the wake (default is *None*).
+            pressure_correction: A PressureField object will be
+                initialized to correct the velocity field (default is
+                *False*).
 
         Returns:
             *None* -- The flow field is updated directly in the 
@@ -336,6 +342,13 @@ class FlowField():
         # reinitialize the turbines
         for turbine in self.turbine_map.turbines:
             turbine.reinitialize_turbine()
+
+        # set up pressure correction field, if requested
+        if pressure_correction:
+            self.pressure_correction = PressureField(self)
+        else:
+            self.pressure_correction = None
+
 
     def calculate_wake(self, no_wake=False):
         """

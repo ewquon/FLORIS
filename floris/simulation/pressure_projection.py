@@ -22,40 +22,31 @@ class PressureField(object):
     combined with the original velocity field, satisfies mass
     conservation.
     """
-    def __init__(self,x,y,z,u,v=None,w=None,dx=None,dy=None,dz=None):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.Nx = len(x)
-        self.Ny = len(y)
-        self.Nz = len(z)
+    def __init__(self,flow_field):
+        # setup grid
+        self.x = flow_field.x
+        self.y = flow_field.y
+        self.z = flow_field.z
+        self.Nx, self.Ny, self.Nz = self.x.shape
         self.N = self.Nx * self.Ny * self.Nz
-        assert(u.shape == (self.Nx,self.Ny,self.Nz))
-        self.u0 = u
-        if v is None:
-            v = np.zeros(u.shape)
-        if w is None:
-            w = np.zeros(u.shape)
-        self.v0 = v
-        self.w0 = w
-        if dx is None:
-            dx = np.diff(x[:,0,0])
-            assert np.all(dx==dx[0])
-            self.dx = dx[0]
-        else:
-            self.dx = dx
-        if dy is None:
-            dy = np.diff(y[0,:,0])
-            assert np.all(dy==dy[0])
-            self.dy = dy[0]
-        else:
-            self.dy = dy
-        if dz is None:
-            dz = np.diff(z[0,0,:])
-            assert np.all(dz==dz[0])
-            self.dz = dz[0]
-        else:
-            self.dz = dz
+
+        # set initial fields
+        self.u0 = flow_field.u
+        self.v0 = flow_field.v
+        self.w0 = flow_field.w
+
+        # get actual grid spacings
+        dx = np.diff(self.x[:,0,0])
+        dy = np.diff(self.y[0,:,0])
+        dz = np.diff(self.z[0,0,:])
+        assert np.max(np.abs(dx - dx[0]) < 1e-8)
+        assert np.max(np.abs(dy - dy[0]) < 1e-8)
+        assert np.max(np.abs(dz - dz[0]) < 1e-8)
+        self.dx = dx[0]
+        self.dy = dy[0]
+        self.dz = dz[0]
+
+        # solver matrices
         self.LHS = None
         self.RHS = None
 

@@ -49,7 +49,8 @@ class FlorisInterface():
                                 air_density=None,
                                 wake=None,
                                 layout_array=None,
-                                with_resolution=None):
+                                with_resolution=None,
+                                pressure_correction=False):
         """
         Wrapper to
         :py:meth:`floris.simlulation.flow_field.reinitialize_flow_field`.
@@ -91,7 +92,8 @@ class FlorisInterface():
             air_density=air_density,
             wake=wake,
             turbine_map=turbine_map,
-            with_resolution=with_resolution)
+            with_resolution=with_resolution,
+            pressure_correction=pressure_correction)
 
     # Special case function for quick visualization of hub height
     def get_hub_height_flow_data(self,
