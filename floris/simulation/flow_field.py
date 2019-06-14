@@ -327,6 +327,12 @@ class FlowField():
             self.wake = wake
         if with_resolution is None:
             with_resolution = self.wake.velocity_model.model_grid_resolution
+            if hasattr(self,'pressure_correction') and \
+                    (self.pressure_correction is not None):
+                # if we had previously set up a pressure correction field, we
+                # will need to recreate it because the grid resolution has 
+                # changed
+                pressure_correction = True
 
         # initialize derived attributes and constants
         self.max_diameter = max(
