@@ -30,11 +30,6 @@ class PressureField(object):
         self.Nx, self.Ny, self.Nz = self.x.shape
         self.N = self.Nx * self.Ny * self.Nz
 
-        # set initial fields
-        self.u0 = flow_field.u
-        self.v0 = flow_field.v
-        self.w0 = flow_field.w
-
         # get actual grid spacings
         dx = np.diff(self.x[:,0,0])
         dy = np.diff(self.y[0,:,0])
@@ -83,39 +78,42 @@ class PressureField(object):
             format='csr'
         )
 
-    def calc_gradients(self):
+    def update_RHS(self):
+        du0_dx, dv0_dy, dw0_dz = self._calc_gradients()
+        self._set_RHS(du0_dx, dv0_dy, dw0_dz)
+
+    def _calc_gradients(self):
         """Calculate RHS of Poisson equation, div(U), from finite
         differences. Second-order central differences are evaluated
         on the interior, first-order one-sided differences on the
         boundaries.
         """
-        self.du0_dx = np.zeros(self.u0.shape)
-        self.dv0_dy = np.zeros(self.v0.shape)
-        self.dw0_dz = np.zeros(self.w0.shape)
+        du0_dx = np.zeros(self.u0.shape)
+        dv0_dy = np.zeros(self.v0.shape)
+        dw0_dz = np.zeros(self.w0.shape)
         # u, inlet
-        self.du0_dx[0,:,:] = (self.u0[1,:,:] - self.u0[0,:,:]) / self.dx
+        du0_dx[0,:,:] = (self.u0[1,:,:] - self.u0[0,:,:]) / self.dx
         # u, outlet
-        self.du0_dx[-1,:,:] = (self.u0[-1,:,:] - self.u0[-2,:,:]) / self.dx
+        du0_dx[-1,:,:] = (self.u0[-1,:,:] - self.u0[-2,:,:]) / self.dx
         # interior
-        self.du0_dx[1:-1,:,:] = (self.u0[2:,:,:] - self.u0[:-2,:,:]) / (2*self.dx)
+        du0_dx[1:-1,:,:] = (self.u0[2:,:,:] - self.u0[:-2,:,:]) / (2*self.dx)
         if self.v0 is not None:
             # v, -y
-            self.dv0_dy[:,0,:] = (self.v0[:,1,:] - self.v0[:,0,:]) / self.dy
+            dv0_dy[:,0,:] = (self.v0[:,1,:] - self.v0[:,0,:]) / self.dy
             # v, +y
-            self.dv0_dy[:,-1,:] = (self.v0[:,-1,:] - self.v0[:,-2,:]) / self.dy
+            dv0_dy[:,-1,:] = (self.v0[:,-1,:] - self.v0[:,-2,:]) / self.dy
             # interior
-            self.dv0_dy[:,1:-1,:] = (self.v0[:,2:,:] - self.v0[:,:-2,:]) / (2*self.dy)
+            dv0_dy[:,1:-1,:] = (self.v0[:,2:,:] - self.v0[:,:-2,:]) / (2*self.dy)
         if self.w0 is not None:
             # w, lower
-            self.dw0_dz[:,:,0] = (self.w0[:,:,1] - self.w0[:,:,0]) / self.dz
+            dw0_dz[:,:,0] = (self.w0[:,:,1] - self.w0[:,:,0]) / self.dz
             # w, upper
-            self.dw0_dz[:,:,-1] = (self.w0[:,:,-1] - self.w0[:,:,-2]) / self.dz
+            dw0_dz[:,:,-1] = (self.w0[:,:,-1] - self.w0[:,:,-2]) / self.dz
             # interior
-            self.dw0_dz[:,:,1:-1] = (self.w0[:,:,2:] - self.w0[:,:,:-2]) / (2*self.dz)
-        # update RHS
-        self.set_RHS(self.du0_dx, self.dv0_dy, self.dw0_dz)
+            dw0_dz[:,:,1:-1] = (self.w0[:,:,2:] - self.w0[:,:,:-2]) / (2*self.dz)
+        return du0_dx, dv0_dy, dw0_dz
 
-    def set_RHS(self,du_dx,dv_dy=None,dw_dz=None):
+    def _set_RHS(self,du_dx,dv_dy=None,dw_dz=None):
         """Set the RHS of the Poisson equation, which is the divergence
         of the initial velocity predictor (i.e., the modeled velocity
         field).
@@ -127,33 +125,45 @@ class PressureField(object):
             div += dw_dz
         self.RHS = div.ravel()
 
-    def _correct_field(self,A=1.0):
+    def _correct_fields(self,A=1.0):
+        # central difference
         dp_dx = (self.p[2:,:,:] - self.p[:-2,:,:]) / (2*self.dx)
         dp_dy = (self.p[:,2:,:] - self.p[:,:-2,:]) / (2*self.dy)
         dp_dz = (self.p[:,:,2:] - self.p[:,:,:-2]) / (2*self.dz)
+
+        # update velocity fields
         self.u = self.u0.copy()
-        if self.v0 is None:
-            self.v = np.zeros(self.u.shape)
-        else:
-            self.v = self.v0.copy()
-        if self.w0 is None:
-            self.w = np.zeros(self.u.shape)
-        else:
-            self.w = self.w0.copy()
+        self.v = self.v0.copy()
+        self.w = self.w0.copy()
         self.u[1:-1,:,:] -= A*dp_dx
         self.v[:,1:-1,:] -= A*dp_dy
         self.w[:,:,1:-1] -= A*dp_dz
 
-    def solve(self,A=1.0,tol=1e-5):
+    def solve(self, u_wake, v_wake=None, w_wake=None, A=1.0, tol=1e-5):
         """Solve Poisson equation for perturbation pressure field,
         according to the formulation in Tannehill, Anderson, and Pletcher
         (1997).
         
         Note: For a fictitious timestep (dt), A == dt/rho [m^3-s/kg]
         """
-        assert(self.RHS is not None)
-        self._setup_LHS()
+        # set modeled/predictor fields
+        self.u0 = u_wake
+        if v_wake is None:
+            self.v0 = np.zeros(self.u0.shape)
+        else:
+            self.v0 = v_wake
+        if w_wake is None:
+            self.w0 = np.zeros(self.u0.shape)
+        else:
+            self.w0 = w_wake
+
+        # setup RHS
+        self.update_RHS()
+
+        # now solve
         soln = cg(self.LHS, self.RHS/A, x0=np.zeros((self.N,)), tol=tol, atol=tol)
         assert(soln[1] == 0) # success
         self.p = soln[0].reshape(self.u0.shape)
-        self._correct_field(A)
+        self._correct_fields(A)
+
+        return self.u, self.v, self.w
