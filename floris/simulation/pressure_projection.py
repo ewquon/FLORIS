@@ -91,35 +91,41 @@ class PressureField(object):
         du0_dx, dv0_dy, dw0_dz = self._calc_gradients()
         self._set_RHS(du0_dx, dv0_dy, dw0_dz)
 
-    def _calc_gradients(self):
+    def _calc_gradients(self,u=None,v=None,w=None):
         """Calculate RHS of Poisson equation, div(U), from finite
         differences. Second-order central differences are evaluated
         on the interior, first-order one-sided differences on the
         boundaries.
         """
+        if u is None:
+            u = self.u0
+        if v is None:
+            v = self.v0
+        if w is None:
+            w = self.w0
         du0_dx = np.zeros(self.u0.shape)
-        dv0_dy = np.zeros(self.v0.shape)
-        dw0_dz = np.zeros(self.w0.shape)
+        dv0_dy = np.zeros(self.u0.shape)
+        dw0_dz = np.zeros(self.u0.shape)
         # u, inlet
-        du0_dx[0,:,:] = (self.u0[1,:,:] - self.u0[0,:,:]) / self.dx
+        du0_dx[0,:,:] = (u[1,:,:] - u[0,:,:]) / self.dx
         # u, outlet
-        du0_dx[-1,:,:] = (self.u0[-1,:,:] - self.u0[-2,:,:]) / self.dx
+        du0_dx[-1,:,:] = (u[-1,:,:] - u[-2,:,:]) / self.dx
         # interior
-        du0_dx[1:-1,:,:] = (self.u0[2:,:,:] - self.u0[:-2,:,:]) / (2*self.dx)
-        if self.v0 is not None:
+        du0_dx[1:-1,:,:] = (u[2:,:,:] - u[:-2,:,:]) / (2*self.dx)
+        if v is not None:
             # v, -y
-            dv0_dy[:,0,:] = (self.v0[:,1,:] - self.v0[:,0,:]) / self.dy
+            dv0_dy[:,0,:] = (v[:,1,:] - v[:,0,:]) / self.dy
             # v, +y
-            dv0_dy[:,-1,:] = (self.v0[:,-1,:] - self.v0[:,-2,:]) / self.dy
+            dv0_dy[:,-1,:] = (v[:,-1,:] - v[:,-2,:]) / self.dy
             # interior
-            dv0_dy[:,1:-1,:] = (self.v0[:,2:,:] - self.v0[:,:-2,:]) / (2*self.dy)
-        if self.w0 is not None:
+            dv0_dy[:,1:-1,:] = (v[:,2:,:] - v[:,:-2,:]) / (2*self.dy)
+        if w is not None:
             # w, lower
-            dw0_dz[:,:,0] = (self.w0[:,:,1] - self.w0[:,:,0]) / self.dz
+            dw0_dz[:,:,0] = (w[:,:,1] - w[:,:,0]) / self.dz
             # w, upper
-            dw0_dz[:,:,-1] = (self.w0[:,:,-1] - self.w0[:,:,-2]) / self.dz
+            dw0_dz[:,:,-1] = (w[:,:,-1] - w[:,:,-2]) / self.dz
             # interior
-            dw0_dz[:,:,1:-1] = (self.w0[:,:,2:] - self.w0[:,:,:-2]) / (2*self.dz)
+            dw0_dz[:,:,1:-1] = (w[:,:,2:] - w[:,:,:-2]) / (2*self.dz)
         return du0_dx, dv0_dy, dw0_dz
 
     def _set_RHS(self,du_dx,dv_dy=None,dw_dz=None):
@@ -148,6 +154,12 @@ class PressureField(object):
         self.v[:,1:-1,:] -= A*dp_dy
         self.w[:,:,1:-1] -= A*dp_dz
 
+    def div(self, corrected=False):
+        if corrected:
+            return sum(self._calc_gradients(self.u,self.v,self.w))
+        else:
+            return self.RHS.reshape(self.u0.shape)
+
     def solve(self, u_wake, v_wake=None, w_wake=None, A=1.0, tol=1e-5):
         """Solve Poisson equation for perturbation pressure field,
         according to the formulation in Tannehill, Anderson, and Pletcher
@@ -166,7 +178,7 @@ class PressureField(object):
         else:
             self.w0 = w_wake
 
-        # setup RHS
+        # calculate gradients setup RHS
         self.update_RHS()
 
         # now solve
@@ -191,5 +203,6 @@ class PressureField(object):
             fig.savefig('/var/tmp/pressure_solve_{:04d}.png'.format(self.Nsolves))
             plt.close(fig)
             self.Nsolves += 1
+            print('pressure solver count',self.Nsolves)
 
         return self.u, self.v, self.w
