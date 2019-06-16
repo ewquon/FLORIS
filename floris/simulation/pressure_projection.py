@@ -52,7 +52,7 @@ class PressureField(object):
         if DEBUG:
             self.Nsolves = 0
             self.khub = np.argmin(np.abs(self.z[0,0,:] - 90.))
-            print('Initialized PressureField')
+            print('Initialized PressureField',self.x.shape)
 
     def _setup_LHS(self):
         """Compressed sparse row (CSR) format appears to be slightly
@@ -200,8 +200,37 @@ class PressureField(object):
                                     self.u[:,:,self.khub], 
                                     cmap='coolwarm')
             fig.colorbar(cmsh,ax=ax[1])
-            fig.savefig('/var/tmp/pressure_solve_{:04d}.png'.format(self.Nsolves))
+            fig.savefig('/var/tmp/u_from_psolve_{:04d}.png'.format(self.Nsolves))
             plt.close(fig)
+
+            fig,ax = plt.subplots(nrows=2,figsize=(11,8))
+            cmsh = ax[0].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    self.v0[:,:,self.khub], 
+                                    cmap='coolwarm')
+            fig.colorbar(cmsh,ax=ax[0])
+            cmsh = ax[1].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    self.v[:,:,self.khub], 
+                                    cmap='coolwarm')
+            fig.colorbar(cmsh,ax=ax[1])
+            fig.savefig('/var/tmp/v_from_psolve_{:04d}.png'.format(self.Nsolves))
+            plt.close(fig)
+
+            fig,ax = plt.subplots(nrows=2,figsize=(11,8))
+            cmsh = ax[0].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    np.abs(self.div(corrected=False)[:,:,self.khub]),
+                                    cmap='Reds')
+            fig.colorbar(cmsh,ax=ax[0])
+            cmsh = ax[1].pcolormesh(self.x[:,:,self.khub],
+                                    self.y[:,:,self.khub], 
+                                    np.abs(self.div(corrected=True)[:,:,self.khub]),
+                                    cmap='Reds')
+            fig.colorbar(cmsh,ax=ax[1])
+            fig.savefig('/var/tmp/cont_err_from_psolve_{:04d}.png'.format(self.Nsolves))
+            plt.close(fig)
+
             self.Nsolves += 1
             print('pressure solver count',self.Nsolves)
 

@@ -416,6 +416,7 @@ class FlowField():
                 turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
                     rotated_x, rotated_y, rotated_z, turbine, coord, deflection,
                 self.wake, self, local_field=u_wake)
+                print('WARNING: use_local_field is experimental at this point')
             else:
                 turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
                     rotated_x, rotated_y, rotated_z, turbine, coord, deflection, self.wake, self)
