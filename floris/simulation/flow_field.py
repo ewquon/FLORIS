@@ -419,12 +419,14 @@ class FlowField():
             else:
                 turb_u_wake, turb_v_wake, turb_w_wake = self._compute_turbine_velocity_deficit(
                     rotated_x, rotated_y, rotated_z, turbine, coord, deflection, self.wake, self)
+
             if self.pressure_correction:
                 # correct the individual turbine wake, which affects the area
                 # overlap detection for wake-added TI 
                 turb_u_wake, turb_v_wake, turb_w_wake = self.pressure_correction.solve(
-                    turb_u_wake, turb_v_wake, turb_w_wake
+                    -turb_u_wake, turb_v_wake, turb_w_wake
                 )
+                turb_u_wake = -turb_u_wake
 
             # include turbulence model for the gaussian wake model from Porte-Agel
             if self.wake.velocity_model.model_string == 'gauss':
@@ -468,26 +470,22 @@ class FlowField():
                 u_wake = self.wake.combination_function(u_wake, turb_u_wake)
                 v_wake = (v_wake + turb_v_wake)
                 w_wake = (w_wake + turb_w_wake)
-                if self.pressure_correction:
-                    # correct the field containing wakes for current
-                    # and upstream turbines, which affects the update of
-                    # the turbine properties for the next downstream turbine
-                    u_wake, v_wake, w_wake = self.pressure_correction.solve(
-                        u_wake, v_wake, w_wake
-                    )
+
+            if self.pressure_correction:
+                # correct the field containing wakes for current
+                # and upstream turbines, which affects the update of
+                # the turbine properties for the next downstream turbine
+                u_wake, v_wake, w_wake = self.pressure_correction.solve(
+                    -u_wake, v_wake, w_wake
+                )
+                u_wake = -u_wake
 
         # apply the velocity deficit field to the freestream
         if not no_wake:
-            # TODO: are these signs correct?
             self.u = self.u_initial - u_wake
+            # TODO: are these signs correct?
             self.v = self.v_initial + v_wake
             self.w = self.w_initial + w_wake
-        if self.pressure_correction:
-            # correct the full field
-            # TODO: is this needed?
-            u_wake, v_wake, w_wake = self.pressure_correction.solve(
-                u_wake, v_wake, w_wake
-            )
 
         # rotate the grid if it is curl
         if self.wake.velocity_model.model_string == 'curl':

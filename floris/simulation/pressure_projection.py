@@ -160,7 +160,7 @@ class PressureField(object):
         else:
             return self.RHS.reshape(self.u0.shape)
 
-    def solve(self, u_wake, v_wake=None, w_wake=None, A=1.0, tol=1e-5):
+    def solve(self, u_wake, v_wake=None, w_wake=None, A=1.0, tol=1e-8):
         """Solve Poisson equation for perturbation pressure field,
         according to the formulation in Tannehill, Anderson, and Pletcher
         (1997).
@@ -168,22 +168,22 @@ class PressureField(object):
         Note: For a fictitious timestep (dt), A == dt/rho [m^3-s/kg]
         """
         # set modeled/predictor fields
-        self.u0 = u_wake
+        self.u0 = u_wake.copy()
         if v_wake is None:
             self.v0 = np.zeros(self.u0.shape)
         else:
-            self.v0 = v_wake
+            self.v0 = v_wake.copy()
         if w_wake is None:
             self.w0 = np.zeros(self.u0.shape)
         else:
-            self.w0 = w_wake
+            self.w0 = w_wake.copy()
 
         # calculate gradients setup RHS
         self.update_RHS()
 
         # now solve
         soln = cg(self.LHS, self.RHS/A, x0=np.zeros((self.N,)), tol=tol, atol=tol)
-        assert(soln[1] == 0) # success
+        assert (soln[1] == 0) # success
         self.p = soln[0].reshape(self.u0.shape)
         self._correct_fields(A)
 
