@@ -50,6 +50,8 @@ class FlorisInterface():
                                 wake=None,
                                 layout_array=None,
                                 with_resolution=None,
+                                domain_buffer={},
+                                bounds_to_set=None,
                                 pressure_correction=False):
         """
         Wrapper to
@@ -92,6 +94,8 @@ class FlorisInterface():
             air_density=air_density,
             wake=wake,
             turbine_map=turbine_map,
+            domain_buffer=domain_buffer,
+            bounds_to_set=bounds_to_set,
             with_resolution=with_resolution,
             pressure_correction=pressure_correction)
 

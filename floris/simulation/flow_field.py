@@ -203,7 +203,7 @@ class FlowField():
 
     # Public methods
 
-    def set_bounds(self, bounds_to_set=None):
+    def set_bounds(self, domain_buffer=dict(), bounds_to_set=None):
         """
         A method that will set the domain bounds for the wake model.
 
@@ -215,8 +215,14 @@ class FlowField():
         values in the x-, y-, and z-directions.
 
         Args:
+            domain_buffer: A dictionary of scalars representing the offset
+                (in rotor diameters for x/y, in reference wind heights
+                for z) from the edge of the bounding box containing all
+                turbines.
+                Valid keys: [xmin, xmax, ymin, ymax, zmin, zmax] 
             bounds_to_set: A list of values representing the mininum 
-                and maximum values for the domain 
+                and maximum values for the domain, overriding the specified
+                domain_buffer.
                 [xmin, xmax, ymin, ymax, zmin, zmax] 
                 (default is *None*).
 
@@ -224,6 +230,12 @@ class FlowField():
             *None* -- The flow field is updated directly in the 
             :py:class:`floris.simulation.floris.flow_field` object.
         """
+        buf_xmin = domain_buffer.get('xmin',-2)
+        buf_xmax = domain_buffer.get('xmax',10)
+        buf_ymin = domain_buffer.get('ymin',-2)
+        buf_ymax = domain_buffer.get('ymax', 2)
+        buf_zmin = domain_buffer.get('zmin', 0)
+        buf_zmax = domain_buffer.get('zmax', 2)
 
         # For the curl model, bounds are hard coded
         if self.wake.velocity_model.model_string == 'curl':
@@ -244,12 +256,12 @@ class FlowField():
             x = [coord.x1 for coord in coords]
             y = [coord.x2 for coord in coords]
             eps = 0.1
-            self._xmin = min(x) - 2 * self.max_diameter
-            self._xmax = max(x) + 10 * self.max_diameter
-            self._ymin = min(y) - 2 * self.max_diameter
-            self._ymax = max(y) + 2 * self.max_diameter
-            self._zmin = 0 + eps
-            self._zmax = 2 * self.specified_wind_height
+            self._xmin = min(x) + buf_xmin * self.max_diameter
+            self._xmax = max(x) + buf_xmax * self.max_diameter
+            self._ymin = min(y) + buf_ymin * self.max_diameter
+            self._ymax = max(y) + buf_ymax * self.max_diameter
+            self._zmin = buf_zmin * self.specified_wind_height + eps
+            self._zmax = buf_zmax * self.specified_wind_height
 
         else:  # Set the boundaries
             self._xmin = bounds_to_set[0]
@@ -269,6 +281,8 @@ class FlowField():
                                 wake=None,
                                 turbine_map=None,
                                 with_resolution=None,
+                                domain_buffer={},
+                                bounds_to_set=None,
                                 pressure_correction=False):
         """
         Reiniaitilzies the flow field when a parameter needs to be 
@@ -302,6 +316,13 @@ class FlowField():
             with_resolution: A :py:class:`floris.utilities.Vec3` object 
                 that defines the flow field resolution at which to 
                 calculate the wake (default is *None*).
+            domain_buffer: Parameter passed to `set_bounds` (default is
+                an empty dict).
+            bounds_to_set: A list of values representing the mininum 
+                and maximum values for the domain, overriding the
+                domain_buffer parameter.
+                [xmin, xmax, ymin, ymax, zmin, zmax] 
+                (default is *None*).
             pressure_correction: A PressureField object will be
                 initialized to correct the velocity field (default is
                 *False*).
@@ -347,7 +368,8 @@ class FlowField():
         self.specified_wind_height = self.turbine_map.turbines[0].hub_height
 
         # Set the domain bounds
-        self.set_bounds()
+        self.set_bounds(domain_buffer=domain_buffer,
+                        bounds_to_set=bounds_to_set)
 
         # reinitialize the flow field
         self._compute_initialized_domain(with_resolution=with_resolution)
