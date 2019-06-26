@@ -34,9 +34,12 @@ class PressureField(object):
         self.N = self.Nx * self.Ny * self.Nz
 
         # get actual grid spacings
-        dx = np.diff(self.x[:,0,0])
-        dy = np.diff(self.y[0,:,0])
-        dz = np.diff(self.z[0,0,:])
+        self.x1 = self.x[:,0,0]
+        self.y1 = self.y[0,:,0]
+        self.z1 = self.z[0,0,:]
+        dx = np.diff(self.x1)
+        dy = np.diff(self.y1)
+        dz = np.diff(self.z1)
         assert np.max(np.abs(dx - dx[0]) < 1e-8)
         assert np.max(np.abs(dy - dy[0]) < 1e-8)
         assert np.max(np.abs(dz - dz[0]) < 1e-8)
@@ -160,10 +163,16 @@ class PressureField(object):
         else:
             return self.RHS.reshape(self.u0.shape)
 
-    def solve(self, u_wake, v_wake=None, w_wake=None, A=1.0, tol=1e-8):
+    def solve(self, u_wake, v_wake=None, w_wake=None,
+              smooth_disk_region=None,
+              A=1.0, tol=1e-8):
         """Solve Poisson equation for perturbation pressure field,
         according to the formulation in Tannehill, Anderson, and Pletcher
         (1997).
+
+        If smooth_disk_region option is set to a turbine object, then
+        an extra interpolation step is performed to smooth the velocity
+        field just upstream and downstream of the rotor disk.
         
         Note: For a fictitious timestep (dt), A == dt/rho [m^3-s/kg]
         """
@@ -186,6 +195,10 @@ class PressureField(object):
         assert (soln[1] == 0) # success
         self.p = soln[0].reshape(self.u0.shape)
         self._correct_fields(A)
+
+        # optional smoothing step
+        if smooth_disk_region is not None:
+            self.interp(**smooth_disk_region)
 
         #--------------------------------------------------------------
         if DEBUG:
@@ -235,3 +248,32 @@ class PressureField(object):
             print('pressure solver count',self.Nsolves)
 
         return self.u, self.v, self.w
+
+    def interp(self, x=None, y=None, z=None, coords=None, D=None, zhub=None):
+        turbx = coords.x1
+        turby = coords.x2
+        turbz = coords.x3
+        x1 = x[:,0,0]
+        i0 = np.argmin(np.abs(turbx - x1))
+#        if DEBUG:
+#            print('interpolating region around rotor at',turbx,turby,turbz)
+#        if x1[i0] >= turbx:
+#            i0 -= 1
+#        in_rotor_region = np.where(
+#                ((turby - y)**2 + (turbz - zhub - z)**2) <= D/2)
+#        def interpfun(f):
+#            f0 = f[i0-1,in_rotor_region[1],in_rotor_region[2]]
+#            f1 = f[i0+2,in_rotor_region[1],in_rotor_region[2]]
+#            f[i0,in_rotor_region[1],in_rotor_region[2]] = 1*(f1-f0)/3 + f0
+#            f[i0+1,in_rotor_region[1],in_rotor_region[2]] = 2*(f1-f0)/3 + f0
+#            return f
+#        self.u = interpfun(self.u)
+        if DEBUG:
+            print('interpolating yz-planes near rotor at',turbx,turby,turbz)
+        if x1[i0] >= turbx:
+            i0 -= 1
+        f0 = self.u[i0-1,:,:]
+        f1 = self.u[i0+2,:,:]
+        self.u[i0,:] = 1*(f1-f0)/3 + f0
+        self.u[i0+1,:] = 2*(f1-f0)/3 + f0
+

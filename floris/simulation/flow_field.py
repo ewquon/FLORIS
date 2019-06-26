@@ -447,7 +447,15 @@ class FlowField():
                 # correct the individual turbine wake, which affects the area
                 # overlap detection for wake-added TI 
                 turb_u_wake, turb_v_wake, turb_w_wake = self.pressure_correction.solve(
-                    -turb_u_wake, turb_v_wake, turb_w_wake
+                    -turb_u_wake, turb_v_wake, turb_w_wake, 
+                     smooth_disk_region={
+                         'x':rotated_x,
+                         'y':rotated_y,
+                         'z':rotated_z,
+                         'coords': coord,
+                         'D':turbine.rotor_diameter,
+                         'zhub': turbine.hub_height,
+                     },
                 )
                 turb_u_wake = -turb_u_wake
 
